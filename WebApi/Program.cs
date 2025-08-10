@@ -3,6 +3,17 @@ using WebApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(options =>
+{
+	options.AddPolicy("AllowViteClient", policy =>
+	{
+		policy
+			.WithOrigins("http://localhost:5173") // React dev server origin
+			.AllowAnyHeader()
+			.AllowAnyMethod();
+	});
+});
+
 // Add services to the container.
 builder.Services.AddHttpClient();
 
@@ -22,6 +33,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowViteClient");
 
 app.UseAuthorization();
 
