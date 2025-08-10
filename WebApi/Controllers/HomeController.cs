@@ -24,13 +24,16 @@ namespace WebApi.Controllers
 		/// </summary>
 		/// <returns></returns>
 		[HttpGet("products")]
-		public async Task<IActionResult> GetAllProducts()
+		public async Task<IActionResult> FilterProducts([FromQuery] string searchKey = null, [FromQuery] string category = null)
 		{
-			string ApiUrl = "https://dummyjson.com/products";
+			var products = new List<Product>();
 
-			var products = await GetProducts();
+			if (!string.IsNullOrEmpty(searchKey) || !string.IsNullOrEmpty(category))
+				products = await GetProducts(category, searchKey);
+			else
+				products = await GetProducts();
 
-			if(products == null || !products.Any())
+			if (products == null || !products.Any())
 				BadRequest("Unable to fetch the products.");
 
 			return Ok(products);
@@ -59,6 +62,32 @@ namespace WebApi.Controllers
 				var result = JsonSerializer.Deserialize<Product>(content, options) ?? new();
 
 				return Ok(result);
+			}
+			catch (Exception ex)
+			{
+				return BadRequest(ex.Message);
+			}
+		}
+
+		/// <summary>
+		/// Get All categories
+		/// </summary>
+		/// <returns></returns>
+		[HttpGet("Categories")]
+		public async Task<IActionResult> GetAllCategory()
+		{
+			string ApiUrl = "https://dummyjson.com/products/category-list";
+
+			try
+			{
+				var response = await _httpClient.GetAsync(ApiUrl);
+
+				if (!response.IsSuccessStatusCode)
+					return BadRequest("Unable to fetch the category.");
+
+				var content = await response.Content.ReadAsStringAsync();
+
+				return Ok(content);
 			}
 			catch (Exception ex)
 			{
@@ -176,12 +205,15 @@ namespace WebApi.Controllers
 		}
 
 		/// <summary>
-		/// Get All product list
+		/// Get All product list or by category
 		/// </summary>
 		/// <returns></returns>
-		private async Task<List<Product>> GetProducts()
+		private async Task<List<Product>> GetProducts(string category = null, string searchKey = null)
 		{
 			string ApiUrl = "https://dummyjson.com/products";
+
+			if (!string.IsNullOrEmpty(category))
+				ApiUrl = $"https://dummyjson.com/products/category/{category}";
 
 			try
 			{
@@ -194,8 +226,12 @@ namespace WebApi.Controllers
 				var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
 				var result = JsonSerializer.Deserialize<ProductDto>(content, options) ?? new();
+				var products = result.Products ?? new();
 
-				return result.Products;
+				if(!string.IsNullOrEmpty(searchKey))
+					products = products.Where(x => x.Title.Contains(searchKey, StringComparison.OrdinalIgnoreCase)).ToList();
+
+				return products;
 			}
 			catch (Exception ex)
 			{
